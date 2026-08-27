@@ -1,0 +1,11 @@
+{
+  "name": "PM BWC Monitor UID Kalselteng",
+  "short_name": "PM BWC Monitor",
+  "description": "Monitoring timeline kunjungan PM BWC UID Kalselteng",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6faf9",
+  "theme_color": "#092f38",
+  "lang": "id-ID",
+  "icons": []
+}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#092f38">
+  <meta name="description" content="Monitoring timeline PM BWC UID Kalselteng">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>PM BWC Monitor | UID Kalselteng</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><span>PLN</span><i data-lucide="zap"></i></div>
+      <div><strong>PM BWC</strong><small>UID Kalselteng</small></div>
+    </div>
+    <div class="workspace-label">WORKSPACE</div>
+    <nav>
+      <button class="nav-item active" data-section="dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
+      <button class="nav-item" data-section="timeline"><i data-lucide="calendar-range"></i><span>Timeline Kunjungan</span><em>12</em></button>
+      <button class="nav-item" data-section="master"><i data-lucide="map-pin"></i><span>Master UP3 & ULP</span></button>
+      <button class="nav-item" data-section="reports"><i data-lucide="file-bar-chart-2"></i><span>Laporan</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sync-card"><div class="sync-icon"><i data-lucide="cloud-check"></i></div><div><strong>Data tersimpan</strong><small>Terakhir sync 08:42 WIB</small></div></div>
+      <button class="profile"><span class="avatar">AR</span><span><strong>Andi Rahman</strong><small>Admin Regional</small></span><i data-lucide="more-horizontal"></i></button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar"><div class="breadcrumb"><span>Monitoring</span><i data-lucide="chevron-right"></i><strong>Dashboard</strong></div><div class="top-actions"><span class="last-update"><i data-lucide="refresh-cw"></i> Update otomatis</span><button class="icon-button" title="Notifikasi"><i data-lucide="bell"></i><b></b></button><button class="icon-button" title="Bantuan"><i data-lucide="circle-help"></i></button></div></header>
+
+    <section class="page-head"><div><div class="eyebrow"><span class="live-dot"></span> PERIODE AKTIF · TRIWULAN III 2024</div><h1>Monitoring kunjungan<br><span>PM BWC.</span></h1><p>Pantau progres kunjungan UP3 dan ULP di seluruh area UID Kalselteng secara terukur.</p></div><div class="head-actions"><button class="button secondary" id="printButton"><i data-lucide="printer"></i> Cetak laporan</button><button class="button secondary" id="downloadReportButton"><i data-lucide="file-down"></i> Unduh laporan</button><button class="button primary" id="addButton"><i data-lucide="plus"></i> Tambah kunjungan</button></div></section>
+
+    <section class="metrics-grid">
+      <article class="metric-card accent-cyan"><div class="metric-top"><span>Total kunjungan</span><i data-lucide="route"></i></div><strong id="totalMetric">12</strong><div class="metric-foot"><span class="trend up"><i data-lucide="trending-up"></i> 16.7%</span><span>dari periode lalu</span></div></article>
+      <article class="metric-card accent-amber"><div class="metric-top"><span>Dalam proses</span><i data-lucide="loader-circle"></i></div><strong id="progressMetric">05</strong><div class="metric-foot"><span class="neutral-dot"></span><span>Perlu ditindaklanjuti</span></div></article>
+      <article class="metric-card accent-green"><div class="metric-top"><span>Selesai</span><i data-lucide="circle-check"></i></div><strong id="doneMetric">06</strong><div class="metric-foot"><span class="trend up"><i data-lucide="arrow-up-right"></i> 8.3%</span><span>vs target 75%</span></div></article>
+      <article class="metric-card accent-red"><div class="metric-top"><span>Terlambat</span><i data-lucide="clock-3"></i></div><strong id="lateMetric">01</strong><div class="metric-foot"><span class="trend down"><i data-lucide="trending-down"></i> 2.1%</span><span>perlu perhatian</span></div></article>
+    </section>
+
+    <section class="content-grid"><article class="panel chart-panel"><div class="panel-head"><div><h2>Progres kunjungan</h2><p>Realisasi kunjungan per minggu</p></div><select id="chartPeriod"><option>4 minggu terakhir</option><option>Triwulan III 2024</option><option>Semester berjalan</option></select></div><div class="chart-wrap"><canvas id="progressChart"></canvas></div><div class="legend"><span><i class="legend-bar done"></i>Selesai</span><span><i class="legend-bar process"></i>Dalam proses</span><span><i class="legend-bar planned"></i>Terjadwal</span></div></article><article class="panel area-panel"><div class="panel-head"><div><h2>Capaian per area</h2><p>Persentase realisasi kunjungan</p></div><button class="text-button" data-section="master">Lihat semua <i data-lucide="arrow-up-right"></i></button></div><div id="areaList" class="area-list"></div></article></section>
+
+    <section class="panel table-panel"><div class="panel-head table-head"><div><h2>Timeline kunjungan</h2><p>Daftar agenda PM BWC terbaru</p></div><div class="table-actions"><label class="search"><i data-lucide="search"></i><input id="searchInput" placeholder="Cari UP3, ULP, atau PIC..." type="search"></label><select id="statusFilter"><option value="all">Semua status</option><option value="Selesai">Selesai</option><option value="Dalam Proses">Dalam proses</option><option value="Terjadwal">Terjadwal</option><option value="Terlambat">Terlambat</option></select><button class="icon-button bordered" id="exportButton" title="Export ke Excel"><i data-lucide="file-down"></i></button></div></div><div class="table-scroll"><table><thead><tr><th>Agenda</th><th>UP3 / ULP</th><th>Rentang estimasi</th><th>Selesai</th><th>Perangkat</th><th>PIC</th><th>Status</th><th>Progress</th><th></th></tr></thead><tbody id="visitTable"></tbody></table></div><div class="table-footer"><span id="tableCount">Menampilkan 6 dari 12 agenda</span><div class="pagination"><button class="icon-button bordered"><i data-lucide="chevron-left"></i></button><button class="page-current">1</button><button class="icon-button bordered"><i data-lucide="chevron-right"></i></button></div></div></section>
+    <footer>PM BWC Monitor <span>•</span> UID Kalimantan Selatan & Kalimantan Tengah <span>•</span> Sistem internal</footer>
+  </main>
+
+  <div class="modal-backdrop" id="modalBackdrop"><div class="modal"><div class="modal-head"><div><span class="eyebrow" id="modalEyebrow">AGENDA BARU</span><h2 id="modalTitle">Tambah kunjungan</h2></div><button class="icon-button" id="closeModal"><i data-lucide="x"></i></button></div><form id="visitForm"><div class="form-grid"><label>Nama agenda<input name="agenda" required placeholder="Contoh: Evaluasi PM BWC"></label><label>UP3<select name="area" id="areaSelect" required></select></label><label>ULP<select name="unit" id="unitSelect" required></select></label><label>Mulai estimasi<input name="date" type="date" required></label><label>Akhir estimasi<input name="estimatedEndDate" type="date" required></label><label>Tanggal selesai aktual<input name="completedDate" type="date"></label><label>PIC<input name="pic" required placeholder="Nama penanggung jawab"></label><label>Status<select name="status"><option>Terjadwal</option><option>Dalam Proses</option><option>Selesai</option><option>Terlambat</option></select></label><label>Perangkat<select name="device" id="deviceSelect" required><option value="BWC Hytera">BWC Hytera</option><option value="POC Hytera">POC Hytera</option></select></label><label>Jenis / model perangkat<select name="deviceModel" id="deviceModelSelect" required><option value="Hytera SC580">Hytera SC580</option></select></label><label>Progress (%)<input name="progress" type="number" min="0" max="100" value="0" required></label></div><div class="modal-actions"><button type="button" class="button danger" id="deleteButton"><i data-lucide="trash-2"></i> Hapus</button><span class="modal-spacer"></span><button type="button" class="button secondary" id="cancelModal">Batal</button><button type="submit" class="button primary"><i data-lucide="check"></i> Simpan agenda</button></div></form></div></div>
+  <div class="modal-backdrop" id="reportBackdrop"><div class="modal report-modal"><div class="modal-head"><div><span class="eyebrow">UNDUH LAPORAN</span><h2>Pilih format laporan</h2></div><button class="icon-button" id="closeReportModal"><i data-lucide="x"></i></button></div><p class="report-note">Excel dapat diedit kembali. PDF dibuat sebagai laporan siap cetak.</p><div class="report-options"><button class="report-option" id="downloadExcel"><i data-lucide="file-spreadsheet"></i><span><strong>Excel (.xlsx)</strong><small>Data tabel dan chart, editable</small></span><i data-lucide="download"></i></button><button class="report-option" id="downloadPdf"><i data-lucide="file-text"></i><span><strong>PDF (.pdf)</strong><small>Laporan siap cetak dan dibagikan</small></span><i data-lucide="download"></i></button></div></div></div>
+  <div class="toast" id="toast"><i data-lucide="circle-check"></i><span></span></div>
+  <script src="app.js"></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
+</body>
+</html>
