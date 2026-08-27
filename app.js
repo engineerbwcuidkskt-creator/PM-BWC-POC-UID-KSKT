@@ -34,6 +34,11 @@ const displayDate = date => date ? formatDate(date) : '-';
 const displayDateRange = visit => `${displayDate(visit.date)} - ${displayDate(visit.estimatedEndDate || visit.date)}`;
 const displayDevice = visit => visit.device ? `${visit.device}<br><small class="subline">${visit.deviceModel || '-'}</small>` : `${visit.bwcType && visit.bwcType !== '-' ? `BWC Hytera: ${visit.bwcType}` : 'BWC: -'}<br><small class="subline">${visit.pocType && visit.pocType !== '-' ? `POC Hytera: ${visit.pocType}` : 'POC: -'}</small>`;
 const todayIso = () => new Date().toISOString().slice(0, 10);
+function updateRealtimeClock() {
+  const now = new Date();
+  document.querySelector('#realtimeTime').textContent = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
+  document.querySelector('#realtimeDate').textContent = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(now);
+}
 const normalizeVisitDates = visit => { if (!visit.estimatedEndDate || visit.estimatedEndDate < visit.date) visit.estimatedEndDate = visit.date; if (visit.completedDate && visit.completedDate < visit.date) visit.completedDate = visit.date; return visit; };
 function populateOptions(selectedArea = up3Options[0], selectedUnit = '') {
   const areaSelect = document.querySelector('#areaSelect');
@@ -49,8 +54,8 @@ function renderTable() {
   const query = document.querySelector('#searchInput').value.toLowerCase();
   const status = document.querySelector('#statusFilter').value;
   const filtered = visits.map(normalizeVisitDates).filter(v => (status === 'all' || v.status === status) && [v.agenda, v.area, v.unit, v.pic].join(' ').toLowerCase().includes(query));
-  document.querySelector('#visitTable').innerHTML = filtered.slice(0, 6).map(v => `<tr><td>${v.agenda}</td><td>${v.area}<br><small class="subline">${v.unit}</small></td><td>${displayDateRange(v)}</td><td>${displayDate(v.completedDate)}</td><td>${displayDevice(v)}</td><td>${v.pic}</td><td><span class="status ${statusClass[v.status]} ">${v.status}</span></td><td><div class="progress-cell"><div class="progress-track"><div class="progress-fill ${v.status === 'Terlambat' ? 'warning' : ''}" style="width:${v.progress}%"></div></div><small>${v.progress}%</small></div></td><td><button class="row-menu" data-id="${v.id}" title="Edit agenda">${icon('pencil')}</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">Tidak ada agenda yang cocok.</td></tr>';
-  document.querySelector('#tableCount').textContent = `Menampilkan ${Math.min(filtered.length, 6)} dari ${filtered.length} agenda`;
+  document.querySelector('#visitTable').innerHTML = filtered.map(v => `<tr><td>${v.agenda}</td><td>${v.area}<br><small class="subline">${v.unit}</small></td><td>${displayDateRange(v)}</td><td>${displayDate(v.completedDate)}</td><td>${displayDevice(v)}</td><td>${v.pic}</td><td><span class="status ${statusClass[v.status]} ">${v.status}</span></td><td><div class="progress-cell"><div class="progress-track"><div class="progress-fill ${v.status === 'Terlambat' ? 'warning' : ''}" style="width:${v.progress}%"></div></div><small>${v.progress}%</small></div></td><td><button class="row-menu" data-id="${v.id}" title="Edit agenda">${icon('pencil')}</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">Tidak ada agenda yang cocok.</td></tr>';
+  document.querySelector('#tableCount').textContent = `Menampilkan ${filtered.length} dari ${filtered.length} agenda`;
   lucide.createIcons();
 }
 function updateMetrics() {
@@ -61,28 +66,29 @@ function updateMetrics() {
   document.querySelector('#lateMetric').textContent = String(late).padStart(2, '0');
 }
 function renderAreas() {
-  const areas = [...new Set(visits.map(v => v.area))].map(area => { const rows = visits.filter(v => v.area === area); return { area, value: Math.round(rows.reduce((sum, v) => sum + v.progress, 0) / rows.length) }; }).sort((a,b) => b.value-a.value).slice(0, 5);
-  document.querySelector('#areaList').innerHTML = areas.map((item, i) => `<div class="area-row"><div class="area-label"><span>${item.area.replace('UP3 ', '')}</span><strong>${item.value}%</strong></div><div class="progress-track"><div class="progress-fill ${i === areas.length - 1 ? 'warning' : ''}" style="width:${item.value}%"></div></div></div>`).join('');
+  document.querySelector('#areaList').innerHTML = up3Options.map(area => {
+    const rows = visits.filter(v => v.area === area);
+    const value = rows.length ? Math.round(rows.reduce((sum, v) => sum + v.progress, 0) / rows.length) : 0;
+    const units = ulpOptions[area] || [];
+    return `<div class="area-group"><div class="area-label"><span>${area}</span><strong>${value}% · ${rows.length} agenda</strong></div><div class="progress-track"><div class="progress-fill ${value < 40 ? 'warning' : ''}" style="width:${value}%"></div></div><div class="unit-list">${units.map(unit => `<span>${unit}</span>`).join('')}</div></div>`;
+  }).join('');
 }
 function createChart() {
   const ctx = document.querySelector('#progressChart');
-  chart = new Chart(ctx, { type: 'bar', data: { labels: ['05 Agu', '12 Agu', '19 Agu', '26 Agu', '02 Sep', '09 Sep'], datasets: [
-    { label: 'Selesai', data: [3, 4, 5, 7, 8, 10], backgroundColor: '#1aa3a8', borderRadius: 3, barThickness: 12 },
-    { label: 'Dalam proses', data: [2, 2, 3, 2, 3, 2], backgroundColor: '#e8a547', borderRadius: 3, barThickness: 12 },
-    { label: 'Terjadwal', data: [1, 2, 1, 2, 1, 0], backgroundColor: '#d9e8e6', borderRadius: 3, barThickness: 12 }
-  ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#092f38', padding: 10, displayColors: true } }, scales: { x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: '#8aa09f', font: { family: 'DM Sans', size: 10 } } }, y: { stacked: true, beginAtZero: true, max: 16, ticks: { stepSize: 4, color: '#9aabaa', font: { size: 10 } }, grid: { color: '#edf3f2' }, border: { display: false } } } } });
+  chart = new Chart(ctx, { type: 'bar', data: { labels: [], datasets: [
+    { label: 'Selesai', data: [], backgroundColor: '#1aa3a8', borderRadius: 3, barThickness: 12 },
+    { label: 'Dalam proses', data: [], backgroundColor: '#e8a547', borderRadius: 3, barThickness: 12 },
+    { label: 'Terjadwal', data: [], backgroundColor: '#d9e8e6', borderRadius: 3, barThickness: 12 },
+    { label: 'Terlambat', data: [], backgroundColor: '#df6c61', borderRadius: 3, barThickness: 12 }
+  ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#092f38', padding: 10, displayColors: true, callbacks: { title: items => { const unit = chart.data.labels[items[0].dataIndex]; const area = up3Options.find(areaName => (ulpOptions[areaName] || []).includes(unit)); return `${area} · ${unit}`; } } } }, scales: { x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: '#8aa09f', font: { family: 'DM Sans', size: 10 }, maxRotation: 55, minRotation: 35 } }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1, color: '#9aabaa', font: { size: 10 } }, grid: { color: '#edf3f2' }, border: { display: false } } } } });
 }
 function updateChart() {
   if (!chart) return;
-  const dates = visits.map(v => new Date(`${v.date}T00:00:00`)).filter(date => !Number.isNaN(date.getTime()));
-  const latestDate = dates.length ? new Date(Math.max(...dates)) : new Date();
-  const latestMonday = new Date(latestDate); latestMonday.setDate(latestMonday.getDate() - ((latestMonday.getDay() + 6) % 7)); latestMonday.setHours(0, 0, 0, 0);
-  const starts = Array.from({ length: 6 }, (_, index) => new Date(latestMonday.getTime() - (5 - index) * 7 * 86400000));
-  const labels = starts.map(start => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short' }).format(start));
-  const values = ['Selesai', 'Dalam Proses', 'Terjadwal'].map(status => starts.map(start => visits.filter(v => v.status === status && new Date(`${v.date}T00:00:00`) >= start && new Date(`${v.date}T00:00:00`) < new Date(start.getTime() + 7 * 86400000)).length));
+  const labels = up3Options.flatMap(area => ulpOptions[area] || []);
+  const values = ['Selesai', 'Dalam Proses', 'Terjadwal', 'Terlambat'].map(status => labels.map(unit => visits.filter(v => v.unit === unit && v.status === status).length));
   chart.data.labels = labels;
   chart.data.datasets.forEach((dataset, index) => { dataset.data = values[index]; });
-  chart.options.scales.y.max = Math.max(4, ...values.flat()) + 2;
+  chart.options.scales.y.max = Math.max(2, ...values.flat()) + 1;
   chart.update();
 }
 let editingId = null;
@@ -135,4 +141,5 @@ document.querySelector('#visitForm').addEventListener('submit', e => { e.prevent
 document.querySelectorAll('.nav-item,.text-button').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active')); const target = document.querySelector(`.nav-item[data-section="${button.dataset.section}"]`); if (target) target.classList.add('active'); if (button.dataset.section !== 'dashboard') toast(`${button.textContent.trim()} sedang disiapkan di workspace ini`); }));
 visits = visits.map(normalizeVisitDates);
 saveVisits();
-updateMetrics(); renderAreas(); renderTable(); createChart(); updateChart(); lucide.createIcons();
+updateMetrics(); renderAreas(); renderTable(); createChart(); updateChart(); updateRealtimeClock(); lucide.createIcons();
+setInterval(updateRealtimeClock, 1000);
