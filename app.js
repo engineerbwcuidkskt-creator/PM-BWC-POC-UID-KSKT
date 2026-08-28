@@ -12,15 +12,8 @@ let visits = [
   { id: 11, agenda: 'Kunjungan evaluasi ULP', area: 'UP3 Kotabaru', unit: 'ULP Kotabaru', date: '2024-09-10', pic: 'Nadia Putri', status: 'Dalam Proses', progress: 70 },
   { id: 12, agenda: 'Finalisasi rekomendasi', area: 'UP3 Barabai', unit: 'ULP Rantau', date: '2024-09-11', pic: 'Agus Salim', status: 'Selesai', progress: 100 }
 ];
-const up3Options = ['UP3 Banjarmasin', 'UP3 Kuala Kapuas', 'UP3 Palangkaraya', 'UP3 Barabai', 'UP3 Batulicin', 'UP3 Pangkalan Bun'];
-const ulpOptions = {
-  'UP3 Banjarmasin': ['ULP Banjarmasin Kota', 'ULP Banjarmasin Selatan', 'ULP Banjarbaru', 'ULP Martapura', 'ULP Marabahan'],
-  'UP3 Kuala Kapuas': ['ULP Kuala Kapuas', 'ULP Pulang Pisau', 'ULP Tamiang Layang'],
-  'UP3 Palangkaraya': ['ULP Palangkaraya', 'ULP Kasongan', 'ULP Kuala Kurun', 'ULP Tewah'],
-  'UP3 Barabai': ['ULP Barabai', 'ULP Kandangan', 'ULP Rantau', 'ULP Negara'],
-  'UP3 Batulicin': ['ULP Batulicin', 'ULP Kotabaru', 'ULP Pelaihari'],
-  'UP3 Pangkalan Bun': ['ULP Pangkalan Bun', 'ULP Kumai', 'ULP Sukamara', 'ULP Lamandau']
-};
+const up3Options = masterData.up3Options;
+const ulpOptions = masterData.ulpOptions;
 const storedVisits = localStorage.getItem('pm-bwc-visits');
 if (storedVisits) {
   try { visits = JSON.parse(storedVisits); } catch { localStorage.removeItem('pm-bwc-visits'); }
