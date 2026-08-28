@@ -12,8 +12,15 @@ let visits = [
   { id: 11, agenda: 'Kunjungan evaluasi ULP', area: 'UP3 Kotabaru', unit: 'ULP Kotabaru', date: '2024-09-10', pic: 'Nadia Putri', status: 'Dalam Proses', progress: 70 },
   { id: 12, agenda: 'Finalisasi rekomendasi', area: 'UP3 Barabai', unit: 'ULP Rantau', date: '2024-09-11', pic: 'Agus Salim', status: 'Selesai', progress: 100 }
 ];
-const up3Options = masterData.up3Options;
-const ulpOptions = masterData.ulpOptions;
+let up3Options = [...masterData.up3Options];
+let ulpOptions = JSON.parse(JSON.stringify(masterData.ulpOptions));
+const storedMasterData = localStorage.getItem('pm-bwc-master-data');
+if (storedMasterData) {
+  try {
+    const savedMasterData = JSON.parse(storedMasterData);
+    if (Array.isArray(savedMasterData.up3Options) && savedMasterData.ulpOptions) { up3Options = savedMasterData.up3Options; ulpOptions = savedMasterData.ulpOptions; }
+  } catch { localStorage.removeItem('pm-bwc-master-data'); }
+}
 const storedVisits = localStorage.getItem('pm-bwc-visits');
 if (storedVisits) {
   try { visits = JSON.parse(storedVisits); } catch { localStorage.removeItem('pm-bwc-visits'); }
@@ -23,6 +30,7 @@ const statusClass = { 'Selesai': 'done', 'Dalam Proses': 'process', 'Terjadwal':
 const formatDate = date => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`));
 const icon = name => `<i data-lucide="${name}"></i>`;
 const saveVisits = () => localStorage.setItem('pm-bwc-visits', JSON.stringify(visits));
+const saveMasterData = () => localStorage.setItem('pm-bwc-master-data', JSON.stringify({ up3Options, ulpOptions }));
 const displayDate = date => date ? formatDate(date) : '-';
 const displayDateRange = visit => `${displayDate(visit.date)} - ${displayDate(visit.estimatedEndDate || visit.date)}`;
 const displayDevice = visit => visit.device ? `${visit.device}<br><small class="subline">${visit.deviceModel || '-'}</small>` : `${visit.bwcType && visit.bwcType !== '-' ? `BWC Hytera: ${visit.bwcType}` : 'BWC: -'}<br><small class="subline">${visit.pocType && visit.pocType !== '-' ? `POC Hytera: ${visit.pocType}` : 'POC: -'}</small>`;
@@ -100,6 +108,14 @@ function populateChartFilters() {
   unitFilter.addEventListener('change', updateChart);
   updateUnits();
 }
+function openMasterModal() { document.querySelector('#masterBackdrop').classList.add('open'); }
+function closeMasterModal() { document.querySelector('#masterBackdrop').classList.remove('open'); }
+function refreshMasterViews() {
+  populateOptions(document.querySelector('#areaSelect').value, document.querySelector('#unitSelect').value);
+  renderAreas();
+  populateChartFilters();
+  lucide.createIcons();
+}
 let editingId = null;
 function openModal(visit = null) {
   editingId = visit ? visit.id : null;
@@ -145,6 +161,11 @@ document.querySelector('#visitTable').addEventListener('click', e => { const but
 document.querySelector('#visitForm').elements.date.addEventListener('change', e => { document.querySelector('#visitForm').elements.estimatedEndDate.min = e.target.value; });
 document.querySelector('#visitForm').elements.estimatedEndDate.addEventListener('change', e => { const start = document.querySelector('#visitForm').elements.date.value; if (start && e.target.value < start) { e.target.setCustomValidity('Akhir estimasi harus sama atau setelah mulai estimasi.'); } else e.target.setCustomValidity(''); });
 document.querySelector('#deviceSelect').addEventListener('change', e => { document.querySelector('#deviceModelSelect').innerHTML = e.target.value === 'BWC Hytera' ? '<option value="Hytera SC580">Hytera SC580</option>' : '<option value="Hytera PNC380">Hytera PNC380</option>'; });
+document.querySelector('#addLocationButton').addEventListener('click', openMasterModal);
+document.querySelector('#closeMasterModal').addEventListener('click', closeMasterModal);
+document.querySelector('#cancelMasterModal').addEventListener('click', closeMasterModal);
+document.querySelector('#masterBackdrop').addEventListener('click', e => { if (e.target.id === 'masterBackdrop') closeMasterModal(); });
+document.querySelector('#masterForm').addEventListener('submit', e => { e.preventDefault(); const form = e.target; const up3 = form.elements.up3.value.trim(); const ulp = form.elements.ulp.value.trim(); if (!up3Options.includes(up3)) { up3Options.push(up3); ulpOptions[up3] = []; } if (!ulpOptions[up3].includes(ulp)) ulpOptions[up3].push(ulp); saveMasterData(); refreshMasterViews(); closeMasterModal(); form.reset(); toast(`Lokasi ${up3} · ${ulp} berhasil ditambahkan`); });
 document.querySelector('#deleteButton').addEventListener('click', () => { const visit = visits.find(v => v.id === editingId); if (visit && confirm(`Hapus agenda "${visit.agenda}"?`)) { visits = visits.filter(v => v.id !== editingId); saveVisits(); updateMetrics(); renderAreas(); renderTable(); updateChart(); closeModal(); toast('Agenda berhasil dihapus'); } });
 document.querySelector('#visitForm').addEventListener('submit', e => { e.preventDefault(); const form = e.target; const completedDate = form.elements.completedDate.value || (form.elements.status.value === 'Selesai' ? todayIso() : ''); const data = normalizeVisitDates({ agenda: form.elements.agenda.value, area: form.elements.area.value, unit: form.elements.unit.value, date: form.elements.date.value, estimatedEndDate: form.elements.estimatedEndDate.value, completedDate, pic: form.elements.pic.value, status: completedDate ? 'Selesai' : form.elements.status.value, device: form.elements.device.value, deviceModel: form.elements.deviceModel.value, progress: Number(form.elements.progress.value) }); const wasEditing = Boolean(editingId); if (wasEditing) Object.assign(visits.find(v => v.id === editingId), data); else visits.unshift({ id: Date.now(), ...data }); saveVisits(); updateMetrics(); renderAreas(); renderTable(); updateChart(); closeModal(); form.reset(); toast(wasEditing ? 'Agenda berhasil diperbarui' : 'Agenda kunjungan berhasil ditambahkan'); editingId = null; });
 document.querySelectorAll('.nav-item,.text-button').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active')); const target = document.querySelector(`.nav-item[data-section="${button.dataset.section}"]`); if (target) target.classList.add('active'); if (button.dataset.section !== 'dashboard') toast(`${button.textContent.trim()} sedang disiapkan di workspace ini`); }));
