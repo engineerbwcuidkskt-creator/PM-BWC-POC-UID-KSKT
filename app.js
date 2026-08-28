@@ -12,15 +12,15 @@ let visits = [
   { id: 11, agenda: 'Kunjungan evaluasi ULP', area: 'UP3 Kotabaru', unit: 'ULP Kotabaru', date: '2024-09-10', pic: 'Nadia Putri', status: 'Dalam Proses', progress: 70 },
   { id: 12, agenda: 'Finalisasi rekomendasi', area: 'UP3 Barabai', unit: 'ULP Rantau', date: '2024-09-11', pic: 'Agus Salim', status: 'Selesai', progress: 100 }
 ];
-let up3Options = [...masterData.up3Options];
-let ulpOptions = JSON.parse(JSON.stringify(masterData.ulpOptions));
-const storedMasterData = localStorage.getItem('pm-bwc-master-data');
-if (storedMasterData) {
-  try {
-    const savedMasterData = JSON.parse(storedMasterData);
-    if (Array.isArray(savedMasterData.up3Options) && savedMasterData.ulpOptions) { up3Options = savedMasterData.up3Options; ulpOptions = savedMasterData.ulpOptions; }
-  } catch { localStorage.removeItem('pm-bwc-master-data'); }
+const masterStorageKey = 'pm-bwc-master-data';
+const masterSource = window.PM_BWC_MASTER_DATA || { up3: [] };
+let masterData = masterSource;
+const storedMaster = localStorage.getItem(masterStorageKey);
+if (storedMaster) {
+  try { masterData = JSON.parse(storedMaster); } catch { localStorage.removeItem(masterStorageKey); }
 }
+let up3Options = masterData.up3.map(item => item.name);
+let ulpOptions = Object.fromEntries(masterData.up3.map(item => [item.name, item.ulp]));
 const storedVisits = localStorage.getItem('pm-bwc-visits');
 if (storedVisits) {
   try { visits = JSON.parse(storedVisits); } catch { localStorage.removeItem('pm-bwc-visits'); }
@@ -30,7 +30,11 @@ const statusClass = { 'Selesai': 'done', 'Dalam Proses': 'process', 'Terjadwal':
 const formatDate = date => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`));
 const icon = name => `<i data-lucide="${name}"></i>`;
 const saveVisits = () => localStorage.setItem('pm-bwc-visits', JSON.stringify(visits));
-const saveMasterData = () => localStorage.setItem('pm-bwc-master-data', JSON.stringify({ up3Options, ulpOptions }));
+const saveMaster = () => localStorage.setItem(masterStorageKey, JSON.stringify(masterData));
+function syncMasterOptions() {
+  up3Options = masterData.up3.map(item => item.name);
+  ulpOptions = Object.fromEntries(masterData.up3.map(item => [item.name, item.ulp]));
+}
 const displayDate = date => date ? formatDate(date) : '-';
 const displayDateRange = visit => `${displayDate(visit.date)} - ${displayDate(visit.estimatedEndDate || visit.date)}`;
 const displayDevice = visit => visit.device ? `${visit.device}<br><small class="subline">${visit.deviceModel || '-'}</small>` : `${visit.bwcType && visit.bwcType !== '-' ? `BWC Hytera: ${visit.bwcType}` : 'BWC: -'}<br><small class="subline">${visit.pocType && visit.pocType !== '-' ? `POC Hytera: ${visit.pocType}` : 'POC: -'}</small>`;
@@ -74,6 +78,68 @@ function renderAreas() {
     return `<div class="area-group"><div class="area-label"><span>${area}</span><strong>${value}% · ${rows.length} agenda</strong></div><div class="progress-track"><div class="progress-fill ${value < 40 ? 'warning' : ''}" style="width:${value}%"></div></div><div class="unit-list">${units.map(unit => `<span>${unit}</span>`).join('')}</div></div>`;
   }).join('');
 }
+let editingMaster = null;
+function renderMasterTable() {
+  const query = document.querySelector('#masterSearch').value.toLowerCase();
+  const rows = masterData.up3.flatMap(area => [{ area: area.name, unit: '', isArea: true }, ...area.ulp.map(unit => ({ area: area.name, unit }))]).filter(row => `${row.area} ${row.unit}`.toLowerCase().includes(query));
+  document.querySelector('#masterTable').innerHTML = rows.map(row => `<tr class="${row.isArea ? 'master-area-row' : ''}"><td>${row.area}</td><td>${row.unit || '<span class="subline">UP3 induk</span>'}</td><td><button class="row-menu master-edit" data-area="${row.area}" data-unit="${row.unit}" title="Edit lokasi">${icon('pencil')}</button><button class="row-menu master-delete" data-area="${row.area}" data-unit="${row.unit}" title="Hapus lokasi">${icon('trash-2')}</button></td></tr>`).join('') || '<tr><td colspan="3" class="empty">Lokasi tidak ditemukan.</td></tr>';
+  document.querySelector('#masterCount').textContent = `${rows.filter(row => !row.isArea).length} ULP dari ${masterData.up3.length} UP3`;
+  lucide.createIcons();
+}
+function openMasterModal(area = '', unit = '') {
+  editingMaster = area ? { area, unit } : null;
+  document.querySelector('#masterModalTitle').textContent = area ? 'Edit lokasi master' : 'Tambah lokasi master';
+  document.querySelector('#masterType').value = area && unit ? 'ulp' : 'up3';
+  document.querySelector('#masterName').value = unit || area;
+  document.querySelector('#masterParent').value = area;
+  document.querySelector('#masterParent').disabled = !area || !unit;
+  document.querySelector('#masterName').placeholder = area && unit ? 'Nama ULP' : 'Nama UP3';
+  document.querySelector('#masterBackdrop').classList.add('open');
+}
+function closeMasterModal() { document.querySelector('#masterBackdrop').classList.remove('open'); editingMaster = null; }
+function refreshMasterViews() {
+  syncMasterOptions(); saveMaster(); populateOptions(); renderAreas(); renderMasterTable();
+  if (document.querySelector('#chartUp3Filter')) { populateChartFilters(); }
+  updateChart();
+}
+function updateMasterType() {
+  const isUlp = document.querySelector('#masterType').value === 'ulp';
+  document.querySelector('#masterParent').disabled = !isUlp;
+  document.querySelector('#masterParent').required = isUlp;
+  if (!isUlp) document.querySelector('#masterParent').value = '';
+  document.querySelector('#masterName').placeholder = isUlp ? 'Nama ULP' : 'Nama UP3';
+}
+function populateMasterParent() {
+  document.querySelector('#masterParent').innerHTML = '<option value="">Pilih UP3</option>' + up3Options.map(area => `<option value="${area}">${area}</option>`).join('');
+}
+function saveMasterForm(event) {
+  event.preventDefault();
+  const type = document.querySelector('#masterType').value;
+  const name = document.querySelector('#masterName').value.trim();
+  const parent = document.querySelector('#masterParent').value;
+  if (!name || (type === 'ulp' && !parent)) return;
+  if (editingMaster) {
+    const area = masterData.up3.find(item => item.name === editingMaster.area);
+    if (type === 'up3') { area.name = name; visits.forEach(visit => { if (visit.area === editingMaster.area) visit.area = name; }); }
+    else { const unitIndex = area.ulp.indexOf(editingMaster.unit); area.ulp[unitIndex] = name; visits.forEach(visit => { if (visit.area === editingMaster.area && visit.unit === editingMaster.unit) visit.unit = name; }); }
+  } else if (type === 'up3') {
+    if (masterData.up3.some(item => item.name.toLowerCase() === name.toLowerCase())) return toast('Nama UP3 sudah digunakan');
+    masterData.up3.push({ name, ulp: [] });
+  } else {
+    const area = masterData.up3.find(item => item.name === parent);
+    if (!area || area.ulp.some(unit => unit.toLowerCase() === name.toLowerCase())) return toast('Nama ULP sudah digunakan');
+    area.ulp.push(name);
+  }
+  saveVisits(); refreshMasterViews(); closeMasterModal(); toast('Data master berhasil disimpan');
+}
+function deleteMasterLocation(areaName, unitName = '') {
+  const used = visits.some(visit => visit.area === areaName && (!unitName || visit.unit === unitName));
+  if (used) return toast('Lokasi masih dipakai agenda dan tidak dapat dihapus');
+  const area = masterData.up3.find(item => item.name === areaName);
+  if (unitName) area.ulp = area.ulp.filter(unit => unit !== unitName);
+  else masterData.up3 = masterData.up3.filter(item => item.name !== areaName);
+  refreshMasterViews(); toast('Lokasi berhasil dihapus');
+}
 function createChart() {
   const ctx = document.querySelector('#progressChart');
   chart = new Chart(ctx, { type: 'bar', data: { labels: [], datasets: [
@@ -98,23 +164,22 @@ function updateChart() {
 function populateChartFilters() {
   const areaFilter = document.querySelector('#chartUp3Filter');
   const unitFilter = document.querySelector('#chartUlpFilter');
+  const currentArea = areaFilter.value;
+  const currentUnit = unitFilter.value;
   areaFilter.innerHTML = '<option value="all">Semua UP3</option>' + up3Options.map(area => `<option value="${area}">${area}</option>`).join('');
+  areaFilter.value = up3Options.includes(currentArea) ? currentArea : 'all';
   const updateUnits = () => {
     const units = areaFilter.value === 'all' ? up3Options.flatMap(area => ulpOptions[area] || []) : (ulpOptions[areaFilter.value] || []);
     unitFilter.innerHTML = '<option value="all">Semua ULP</option>' + units.map(unit => `<option value="${unit}">${unit}</option>`).join('');
+    unitFilter.value = units.includes(currentUnit) ? currentUnit : 'all';
     updateChart();
   };
-  areaFilter.addEventListener('change', updateUnits);
-  unitFilter.addEventListener('change', updateChart);
+  if (!areaFilter.dataset.bound) {
+    areaFilter.addEventListener('change', updateUnits);
+    unitFilter.addEventListener('change', updateChart);
+    areaFilter.dataset.bound = 'true';
+  }
   updateUnits();
-}
-function openMasterModal() { document.querySelector('#masterBackdrop').classList.add('open'); }
-function closeMasterModal() { document.querySelector('#masterBackdrop').classList.remove('open'); }
-function refreshMasterViews() {
-  populateOptions(document.querySelector('#areaSelect').value, document.querySelector('#unitSelect').value);
-  renderAreas();
-  populateChartFilters();
-  lucide.createIcons();
 }
 let editingId = null;
 function openModal(visit = null) {
@@ -161,15 +226,18 @@ document.querySelector('#visitTable').addEventListener('click', e => { const but
 document.querySelector('#visitForm').elements.date.addEventListener('change', e => { document.querySelector('#visitForm').elements.estimatedEndDate.min = e.target.value; });
 document.querySelector('#visitForm').elements.estimatedEndDate.addEventListener('change', e => { const start = document.querySelector('#visitForm').elements.date.value; if (start && e.target.value < start) { e.target.setCustomValidity('Akhir estimasi harus sama atau setelah mulai estimasi.'); } else e.target.setCustomValidity(''); });
 document.querySelector('#deviceSelect').addEventListener('change', e => { document.querySelector('#deviceModelSelect').innerHTML = e.target.value === 'BWC Hytera' ? '<option value="Hytera SC580">Hytera SC580</option>' : '<option value="Hytera PNC380">Hytera PNC380</option>'; });
-document.querySelector('#addLocationButton').addEventListener('click', openMasterModal);
-document.querySelector('#closeMasterModal').addEventListener('click', closeMasterModal);
-document.querySelector('#cancelMasterModal').addEventListener('click', closeMasterModal);
-document.querySelector('#masterBackdrop').addEventListener('click', e => { if (e.target.id === 'masterBackdrop') closeMasterModal(); });
-document.querySelector('#masterForm').addEventListener('submit', e => { e.preventDefault(); const form = e.target; const up3 = form.elements.up3.value.trim(); const ulp = form.elements.ulp.value.trim(); if (!up3Options.includes(up3)) { up3Options.push(up3); ulpOptions[up3] = []; } if (!ulpOptions[up3].includes(ulp)) ulpOptions[up3].push(ulp); saveMasterData(); refreshMasterViews(); closeMasterModal(); form.reset(); toast(`Lokasi ${up3} · ${ulp} berhasil ditambahkan`); });
 document.querySelector('#deleteButton').addEventListener('click', () => { const visit = visits.find(v => v.id === editingId); if (visit && confirm(`Hapus agenda "${visit.agenda}"?`)) { visits = visits.filter(v => v.id !== editingId); saveVisits(); updateMetrics(); renderAreas(); renderTable(); updateChart(); closeModal(); toast('Agenda berhasil dihapus'); } });
 document.querySelector('#visitForm').addEventListener('submit', e => { e.preventDefault(); const form = e.target; const completedDate = form.elements.completedDate.value || (form.elements.status.value === 'Selesai' ? todayIso() : ''); const data = normalizeVisitDates({ agenda: form.elements.agenda.value, area: form.elements.area.value, unit: form.elements.unit.value, date: form.elements.date.value, estimatedEndDate: form.elements.estimatedEndDate.value, completedDate, pic: form.elements.pic.value, status: completedDate ? 'Selesai' : form.elements.status.value, device: form.elements.device.value, deviceModel: form.elements.deviceModel.value, progress: Number(form.elements.progress.value) }); const wasEditing = Boolean(editingId); if (wasEditing) Object.assign(visits.find(v => v.id === editingId), data); else visits.unshift({ id: Date.now(), ...data }); saveVisits(); updateMetrics(); renderAreas(); renderTable(); updateChart(); closeModal(); form.reset(); toast(wasEditing ? 'Agenda berhasil diperbarui' : 'Agenda kunjungan berhasil ditambahkan'); editingId = null; });
-document.querySelectorAll('.nav-item,.text-button').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active')); const target = document.querySelector(`.nav-item[data-section="${button.dataset.section}"]`); if (target) target.classList.add('active'); if (button.dataset.section !== 'dashboard') toast(`${button.textContent.trim()} sedang disiapkan di workspace ini`); }));
+document.querySelectorAll('.nav-item,.text-button').forEach(button => button.addEventListener('click', () => { const section = button.dataset.section; document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.section === section)); document.querySelectorAll('.page-head,.metrics-grid,.content-grid,.table-panel,footer').forEach(element => { element.style.display = section === 'master' ? 'none' : ''; }); document.querySelector('#masterSection').classList.toggle('open', section === 'master'); if (section === 'master') renderMasterTable(); }));
+document.querySelector('#masterSearch').addEventListener('input', renderMasterTable);
+document.querySelector('#addMasterButton').addEventListener('click', () => { populateMasterParent(); openMasterModal(); });
+document.querySelector('#closeMasterModal').addEventListener('click', closeMasterModal);
+document.querySelector('#cancelMasterModal').addEventListener('click', closeMasterModal);
+document.querySelector('#masterType').addEventListener('change', updateMasterType);
+document.querySelector('#masterForm').addEventListener('submit', saveMasterForm);
+document.querySelector('#masterBackdrop').addEventListener('click', event => { if (event.target.id === 'masterBackdrop') closeMasterModal(); });
+document.querySelector('#masterTable').addEventListener('click', event => { const edit = event.target.closest('.master-edit'); const remove = event.target.closest('.master-delete'); if (edit) { populateMasterParent(); openMasterModal(edit.dataset.area, edit.dataset.unit); } if (remove) deleteMasterLocation(remove.dataset.area, remove.dataset.unit); });
 visits = visits.map(normalizeVisitDates);
 saveVisits();
-updateMetrics(); renderAreas(); renderTable(); createChart(); populateChartFilters(); updateRealtimeClock(); lucide.createIcons();
+syncMasterOptions(); populateMasterParent(); renderMasterTable(); updateMetrics(); renderAreas(); renderTable(); createChart(); populateChartFilters(); updateRealtimeClock(); lucide.createIcons();
 setInterval(updateRealtimeClock, 1000);
