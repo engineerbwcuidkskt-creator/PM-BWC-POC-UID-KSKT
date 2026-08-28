@@ -84,12 +84,28 @@ function createChart() {
 }
 function updateChart() {
   if (!chart) return;
-  const labels = up3Options.flatMap(area => ulpOptions[area] || []);
+  const selectedArea = document.querySelector('#chartUp3Filter').value;
+  const selectedUnit = document.querySelector('#chartUlpFilter').value;
+  const areas = selectedArea === 'all' ? up3Options : [selectedArea];
+  const labels = selectedUnit === 'all' ? areas.flatMap(area => ulpOptions[area] || []) : [selectedUnit];
   const values = ['Selesai', 'Dalam Proses', 'Terjadwal', 'Terlambat'].map(status => labels.map(unit => visits.filter(v => v.unit === unit && v.status === status).length));
   chart.data.labels = labels;
   chart.data.datasets.forEach((dataset, index) => { dataset.data = values[index]; });
   chart.options.scales.y.max = Math.max(2, ...values.flat()) + 1;
   chart.update();
+}
+function populateChartFilters() {
+  const areaFilter = document.querySelector('#chartUp3Filter');
+  const unitFilter = document.querySelector('#chartUlpFilter');
+  areaFilter.innerHTML = '<option value="all">Semua UP3</option>' + up3Options.map(area => `<option value="${area}">${area}</option>`).join('');
+  const updateUnits = () => {
+    const units = areaFilter.value === 'all' ? up3Options.flatMap(area => ulpOptions[area] || []) : (ulpOptions[areaFilter.value] || []);
+    unitFilter.innerHTML = '<option value="all">Semua ULP</option>' + units.map(unit => `<option value="${unit}">${unit}</option>`).join('');
+    updateChart();
+  };
+  areaFilter.addEventListener('change', updateUnits);
+  unitFilter.addEventListener('change', updateChart);
+  updateUnits();
 }
 let editingId = null;
 function openModal(visit = null) {
@@ -141,5 +157,5 @@ document.querySelector('#visitForm').addEventListener('submit', e => { e.prevent
 document.querySelectorAll('.nav-item,.text-button').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active')); const target = document.querySelector(`.nav-item[data-section="${button.dataset.section}"]`); if (target) target.classList.add('active'); if (button.dataset.section !== 'dashboard') toast(`${button.textContent.trim()} sedang disiapkan di workspace ini`); }));
 visits = visits.map(normalizeVisitDates);
 saveVisits();
-updateMetrics(); renderAreas(); renderTable(); createChart(); updateChart(); updateRealtimeClock(); lucide.createIcons();
+updateMetrics(); renderAreas(); renderTable(); createChart(); populateChartFilters(); updateRealtimeClock(); lucide.createIcons();
 setInterval(updateRealtimeClock, 1000);
