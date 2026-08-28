@@ -62,7 +62,7 @@
   <div class="modal-backdrop" id="masterBackdrop"><div class="modal"><div class="modal-head"><div><span class="eyebrow">DATA MASTER</span><h2 id="masterModalTitle">Tambah lokasi master</h2></div><button class="icon-button" id="closeMasterModal"><i data-lucide="x"></i></button></div><form id="masterForm"><div class="form-grid"><label>Jenis lokasi<select id="masterType"><option value="up3">UP3</option><option value="ulp">ULP</option></select></label><label>Nama lokasi<input id="masterName" required placeholder="Nama UP3"></label><label>UP3 induk<select id="masterParent"><option value="">Pilih UP3</option></select></label></div><div class="modal-actions"><span class="modal-spacer"></span><button type="button" class="button secondary" id="cancelMasterModal">Batal</button><button type="submit" class="button primary"><i data-lucide="check"></i> Simpan lokasi</button></div></form></div></div>
   <div class="toast" id="toast"><i data-lucide="circle-check"></i><span></span></div>
   <script src="data/master-data.js?v=20260828-master"></script>
-  <script src="app.js?v=20260828-master-crud"></script>
+  <script src="app.js?v=20260828-master-fallback"></script>
   <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>
