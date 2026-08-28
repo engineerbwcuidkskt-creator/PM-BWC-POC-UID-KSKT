@@ -13,14 +13,15 @@ let visits = [
   { id: 12, agenda: 'Finalisasi rekomendasi', area: 'UP3 Barabai', unit: 'ULP Rantau', date: '2024-09-11', pic: 'Agus Salim', status: 'Selesai', progress: 100 }
 ];
 const masterStorageKey = 'pm-bwc-master-data';
-const masterSource = window.PM_BWC_MASTER_DATA || { up3: [] };
-let masterData = masterSource;
+const legacyMaster = typeof masterData !== 'undefined' ? { up3: masterData.up3Options.map(name => ({ name, ulp: masterData.ulpOptions[name] || [] })) } : { up3: [] };
+const masterSource = window.PM_BWC_MASTER_DATA || legacyMaster;
+let appMasterData = masterSource;
 const storedMaster = localStorage.getItem(masterStorageKey);
 if (storedMaster) {
-  try { masterData = JSON.parse(storedMaster); } catch { localStorage.removeItem(masterStorageKey); }
+  try { appMasterData = JSON.parse(storedMaster); } catch { localStorage.removeItem(masterStorageKey); }
 }
-let up3Options = masterData.up3.map(item => item.name);
-let ulpOptions = Object.fromEntries(masterData.up3.map(item => [item.name, item.ulp]));
+let up3Options = appMasterData.up3.map(item => item.name);
+let ulpOptions = Object.fromEntries(appMasterData.up3.map(item => [item.name, item.ulp]));
 const storedVisits = localStorage.getItem('pm-bwc-visits');
 if (storedVisits) {
   try { visits = JSON.parse(storedVisits); } catch { localStorage.removeItem('pm-bwc-visits'); }
@@ -30,10 +31,10 @@ const statusClass = { 'Selesai': 'done', 'Dalam Proses': 'process', 'Terjadwal':
 const formatDate = date => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`));
 const icon = name => `<i data-lucide="${name}"></i>`;
 const saveVisits = () => localStorage.setItem('pm-bwc-visits', JSON.stringify(visits));
-const saveMaster = () => localStorage.setItem(masterStorageKey, JSON.stringify(masterData));
+const saveMaster = () => localStorage.setItem(masterStorageKey, JSON.stringify(appMasterData));
 function syncMasterOptions() {
-  up3Options = masterData.up3.map(item => item.name);
-  ulpOptions = Object.fromEntries(masterData.up3.map(item => [item.name, item.ulp]));
+  up3Options = appMasterData.up3.map(item => item.name);
+  ulpOptions = Object.fromEntries(appMasterData.up3.map(item => [item.name, item.ulp]));
 }
 const displayDate = date => date ? formatDate(date) : '-';
 const displayDateRange = visit => `${displayDate(visit.date)} - ${displayDate(visit.estimatedEndDate || visit.date)}`;
@@ -81,9 +82,9 @@ function renderAreas() {
 let editingMaster = null;
 function renderMasterTable() {
   const query = document.querySelector('#masterSearch').value.toLowerCase();
-  const rows = masterData.up3.flatMap(area => [{ area: area.name, unit: '', isArea: true }, ...area.ulp.map(unit => ({ area: area.name, unit }))]).filter(row => `${row.area} ${row.unit}`.toLowerCase().includes(query));
+  const rows = appMasterData.up3.flatMap(area => [{ area: area.name, unit: '', isArea: true }, ...area.ulp.map(unit => ({ area: area.name, unit }))]).filter(row => `${row.area} ${row.unit}`.toLowerCase().includes(query));
   document.querySelector('#masterTable').innerHTML = rows.map(row => `<tr class="${row.isArea ? 'master-area-row' : ''}"><td>${row.area}</td><td>${row.unit || '<span class="subline">UP3 induk</span>'}</td><td><button class="row-menu master-edit" data-area="${row.area}" data-unit="${row.unit}" title="Edit lokasi">${icon('pencil')}</button><button class="row-menu master-delete" data-area="${row.area}" data-unit="${row.unit}" title="Hapus lokasi">${icon('trash-2')}</button></td></tr>`).join('') || '<tr><td colspan="3" class="empty">Lokasi tidak ditemukan.</td></tr>';
-  document.querySelector('#masterCount').textContent = `${rows.filter(row => !row.isArea).length} ULP dari ${masterData.up3.length} UP3`;
+  document.querySelector('#masterCount').textContent = `${rows.filter(row => !row.isArea).length} ULP dari ${appMasterData.up3.length} UP3`;
   lucide.createIcons();
 }
 function openMasterModal(area = '', unit = '') {
@@ -119,14 +120,14 @@ function saveMasterForm(event) {
   const parent = document.querySelector('#masterParent').value;
   if (!name || (type === 'ulp' && !parent)) return;
   if (editingMaster) {
-    const area = masterData.up3.find(item => item.name === editingMaster.area);
+    const area = appMasterData.up3.find(item => item.name === editingMaster.area);
     if (type === 'up3') { area.name = name; visits.forEach(visit => { if (visit.area === editingMaster.area) visit.area = name; }); }
     else { const unitIndex = area.ulp.indexOf(editingMaster.unit); area.ulp[unitIndex] = name; visits.forEach(visit => { if (visit.area === editingMaster.area && visit.unit === editingMaster.unit) visit.unit = name; }); }
   } else if (type === 'up3') {
-    if (masterData.up3.some(item => item.name.toLowerCase() === name.toLowerCase())) return toast('Nama UP3 sudah digunakan');
-    masterData.up3.push({ name, ulp: [] });
+    if (appMasterData.up3.some(item => item.name.toLowerCase() === name.toLowerCase())) return toast('Nama UP3 sudah digunakan');
+    appMasterData.up3.push({ name, ulp: [] });
   } else {
-    const area = masterData.up3.find(item => item.name === parent);
+    const area = appMasterData.up3.find(item => item.name === parent);
     if (!area || area.ulp.some(unit => unit.toLowerCase() === name.toLowerCase())) return toast('Nama ULP sudah digunakan');
     area.ulp.push(name);
   }
@@ -135,9 +136,9 @@ function saveMasterForm(event) {
 function deleteMasterLocation(areaName, unitName = '') {
   const used = visits.some(visit => visit.area === areaName && (!unitName || visit.unit === unitName));
   if (used) return toast('Lokasi masih dipakai agenda dan tidak dapat dihapus');
-  const area = masterData.up3.find(item => item.name === areaName);
+  const area = appMasterData.up3.find(item => item.name === areaName);
   if (unitName) area.ulp = area.ulp.filter(unit => unit !== unitName);
-  else masterData.up3 = masterData.up3.filter(item => item.name !== areaName);
+  else appMasterData.up3 = appMasterData.up3.filter(item => item.name !== areaName);
   refreshMasterViews(); toast('Lokasi berhasil dihapus');
 }
 function createChart() {
